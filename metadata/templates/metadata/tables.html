@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Table Metadata</title>
+</head>
+<body>
+    <h1>Oracle Table Metadata</h1>
+    <table border="1">
+        <tr>
+            {% for col in data.0.keys %}
+                <th>{{ col }}</th>
+            {% endfor %}
+        </tr>
+        {% for row in data %}
+        <tr>
+            {% for val in row.values %}
+                <td>{{ val }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
