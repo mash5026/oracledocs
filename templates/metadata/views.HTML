@@ -15,6 +15,14 @@
         .table th, .table td {
             vertical-align: middle;
         }
+        pre.sql {
+            white-space: pre-wrap;
+            direction: ltr;
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -23,13 +31,15 @@
             <a class="navbar-brand" href="/">سامانه مستندسازی پایگاه داده اوراکل</a>
         </div>
     </nav>
-            <div class="text-center mt-4">
-            <a href="{% url 'metadata:home' %}" class="btn btn-secondary">برگشت به صفحه اصلی</a>
-</div>
+
+    <div class="text-center mt-4">
+        <a href="{% url 'metadata:home' %}" class="btn btn-secondary">برگشت به صفحه اصلی</a>
+    </div>
 
     <main class="container my-4">
         <h1 class="text-center mb-4">اطلاعات ویوها</h1>
-                <div class="text-end mb-3">
+
+        <div class="text-end mb-3">
             <a href="?{% if selected %}owner={{ selected }}&{% endif %}export=excel" class="btn btn-success">
                 خروجی اکسل 
             </a>
@@ -50,24 +60,26 @@
                 <tr>
                     <th>مالک</th>
                     <th>نام ویو</th>
-                    <th>نام ستون</th>
-                    <th>نوع داده</th>
-                    <th>طول داده</th>
-                    <th>قابل‌تخصیص</th>
-                    <th>توضیحات</th>
+                    <th>جداول/ویوهای مرجع</th>
+                    <th>WHERE</th>
+                    <th>JOIN</th>
+                    
                 </tr>
             </thead>
             <tbody>
                 {% for row in data %}
                 <tr>
-                    {% for val in row.values %}
-                        <td>{{ val }}</td>
-                    {% endfor %}
+                    <td>{{ row.OWNER }}</td>
+                    <td>{{ row.VIEW_NAME }}</td>
+                    <td>{{ row.REFERENCED_OBJECTS|default:"-" }}</td>
+                    <td><pre class="sql">{{ row.WHERE_CLAUSE|default:"-" }}</pre></td>
+                    <td><pre class="sql">{{ row.JOIN_CLAUSE|default:"-" }}</pre></td>
+                    
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        
+
         <div class="text-center mt-4">
             <a href="{% url 'metadata:home' %}" class="btn btn-secondary">برگشت به صفحه اصلی</a>
         </div>

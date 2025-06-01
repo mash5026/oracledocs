@@ -70,41 +70,54 @@ def table_metadata(request):
 
 
 def view_metadata(request):
-
     owner = request.GET.get("owner")
     export = request.GET.get("export")
+    params = {"owner": owner}
 
-    query = """
-        SELECT c.OWNER,
-               c.TABLE_NAME AS VIEW_NAME,
-               c.COLUMN_NAME,
-               c.DATA_TYPE,
-               c.DATA_LENGTH,
-               c.NULLABLE,
-               cc.COMMENTS
-        FROM ALL_TAB_COLUMNS c
-        JOIN ALL_VIEWS v
-            ON c.TABLE_NAME = v.VIEW_NAME AND c.OWNER = v.OWNER
-        LEFT JOIN ALL_COL_COMMENTS cc
-            ON c.OWNER = cc.OWNER AND c.TABLE_NAME = cc.TABLE_NAME AND c.COLUMN_NAME = cc.COLUMN_NAME
+    view_query = """
+        SELECT v.OWNER,
+               v.VIEW_NAME,
+               REGEXP_SUBSTR(v.TEXT_VC, 'WHERE.+', 1,1, 'i') WHERE_CLAUSE,
+               REGEXP_SUBSTR(v.TEXT_VC, 'JOIN.+?ON.+?(WHERE|GROUP BY |ORDER BBY|$)', 1, 1, 'in') as JOIN_CLAUSE
+
+        FROM ALL_VIEWS v
+        WHERE (:owner IS NULL OR v.OWNER = :owner)
     """
-    params = {}
-    if owner:
-        query += " WHERE c.OWNER = :owner"
-        params["owner"] = owner
 
-    query += " ORDER BY c.OWNER, c.TABLE_NAME, c.COLUMN_ID"
+    dependency_query = """
+        SELECT d.OWNER,
+               d.NAME AS VIEW_NAME,
+               LISTAGG(d.REFERENCED_OWNER || '.' || d.REFERENCED_NAME, ', ') 
+                 WITHIN GROUP (ORDER BY d.REFERENCED_NAME) AS REFERENCED_OBJECTS
+        FROM ALL_DEPENDENCIES d
+        WHERE d.TYPE = 'VIEW' AND d.REFERENCED_TYPE IN ('TABLE', 'VIEW')
+          AND (:owner IS NULL OR d.OWNER = :owner)
+        GROUP BY d.OWNER, d.NAME
+    """
 
     with connection.cursor() as cursor:
-        cursor.execute(query, params)
-        columns = [col[0] for col in cursor.description]
-        rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        # fetch view definitions
+        cursor.execute(view_query, params)
+        view_columns = [col[0] for col in cursor.description]
+        views = [dict(zip(view_columns, row)) for row in cursor.fetchall()]
+
+        # fetch referenced tables
+        cursor.execute(dependency_query, params)
+        dep_columns = [col[0] for col in cursor.description]
+        dependencies = [dict(zip(dep_columns, row)) for row in cursor.fetchall()]
+
+    # merge results in Python
+    dep_map = {(d["OWNER"], d["VIEW_NAME"]): d["REFERENCED_OBJECTS"] for d in dependencies}
+    for view in views:
+        key = (view["OWNER"], view["VIEW_NAME"])
+        view["REFERENCED_OBJECTS"] = dep_map.get(key, "")
 
     if export == "excel":
-        return export_to_excel(rows, columns, filename="view_metadata.xlsx")
+        columns = list(views[0].keys()) if views else []
+        return export_to_excel(views, columns, filename="views_metadata.xlsx")
 
     schemas = get_schema_list()
-    return render(request, "metadata/views.html", {"data": rows, "schemas": schemas, "selected": owner})
+    return render(request, "metadata/views.html", {"data": views, "schemas": schemas, "selected": owner})
 
 
 def procedure_metadata(request):
